@@ -33,3 +33,28 @@ resource "google_storage_bucket" "logs_data_bucket" {
 }
 
 
+resource "google_discovery_engine_data_store" "data_store_staging" {
+  location                    = var.data_store_region
+  project                     = var.staging_project_id
+  data_store_id               = "${var.datastore_name}"
+  display_name                = "${var.datastore_name}"
+  industry_vertical           = "GENERIC"
+  content_config              = "NO_CONTENT"
+  solution_types              = ["SOLUTION_TYPE_SEARCH"]
+  create_advanced_site_search = false
+  provider                    = google.staging_billing_override
+  depends_on         = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
+}
+
+resource "google_discovery_engine_data_store" "data_store_prod" {
+  location                    = var.data_store_region
+  project                     = var.prod_project_id
+  data_store_id               = "${var.datastore_name}"
+  display_name                = "${var.datastore_name}"
+  industry_vertical           = "GENERIC"
+  content_config              = "NO_CONTENT"
+  solution_types              = ["SOLUTION_TYPE_SEARCH"]
+  create_advanced_site_search = false
+  provider                    = google.prod_billing_override
+  depends_on         = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
+}

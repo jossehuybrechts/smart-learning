@@ -125,3 +125,15 @@ variable "cicd_sa_deployment_required_roles" {
     "roles/storage.admin"
   ]
 }
+
+variable "data_store_region" {
+  type        = string
+  description = "Google Cloud region for resource deployment."
+  default     = "us"
+}
+
+variable "datastore_name" {
+  description = "The name of the datastore"
+  type = string
+  default = "study-helper-datastore"
+}
