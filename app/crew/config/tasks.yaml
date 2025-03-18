@@ -12,26 +12,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-code_task:
+generate_question_task:
   description: >
-    You are helping writing python code. These are the instructions:
+    You are generating a sample exam question about the topic requested. These are the instructions:
     
-    Instructions ------------ {code_instructions}
+    Instructions ------------ {question_instruction}
 
 
   expected_output: >
-    Your Final answer must be the full python code, only the python code and nothing else.
+    Your Final answer must be the topic and question.
 
 
 evaluate_task:
   description: >
-    You are helping writing python code. These are the instructions:
+    You are evaluating the response to the asked question. These are the instructions:
     
-    Instructions ------------ {code_instructions}
+    Question ------------ {question}
+    Answer ------------ {answer}
     
-    You will look over the code to insure that it is complete and does the job that it is supposed to do. You will also check for logic error, syntax errors, missing imports, variable declarations, mismatched brackets and missing test cases. If you find any issue in the code, ask the Senior Software Engineer to fix it by providing them the code and the instructions. Don't fix it yourself.
+    You will check if the answer is a correct and complete response to the question. Give additional information if needed or correct the answer if it is incorrect. If the answer is correct and complete, congratulate the student.
 
 
   expected_output: >
-    Your Final answer must be the full python code, only the python code and nothing else.
+    Your Final answer must be the full feedback for the student.
 

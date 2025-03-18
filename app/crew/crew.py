@@ -20,8 +20,8 @@ from crewai.project import CrewBase, agent, crew, task
 
 
 @CrewBase
-class DevCrew:
-    """Developer crew"""
+class StudyHelperCrew:
+    """Study Helper crew"""
 
     agents_config: dict[str, Any]
     tasks_config: dict[str, Any]
@@ -29,40 +29,49 @@ class DevCrew:
     llm = "vertex_ai/gemini-2.0-flash-001"
 
     @agent
-    def senior_engineer_agent(self) -> Agent:
+    def coach_agent(self) -> Agent:
         return Agent(
-            config=self.agents_config.get("senior_engineer_agent"),
+            config=self.agents_config.get("coach_agent"),
+            allow_delegation=True,
+            verbose=True,
+            llm=self.llm,
+        )
+
+    @agent
+    def exercise_generator_agent(self) -> Agent:
+        return Agent(
+            config=self.agents_config.get("exercise_generator_agent"),
             allow_delegation=False,
             verbose=True,
             llm=self.llm,
         )
 
     @agent
-    def chief_qa_engineer_agent(self) -> Agent:
+    def evaluator_agent(self) -> Agent:
         return Agent(
-            config=self.agents_config.get("chief_qa_engineer_agent"),
-            allow_delegation=True,
+            config=self.agents_config.get("evaluator_agent"),
+            allow_delegation=False,
             verbose=True,
             llm=self.llm,
         )
 
     @task
-    def code_task(self) -> Task:
+    def generate_question_task(self) -> Task:
         return Task(
-            config=self.tasks_config.get("code_task"),
-            agent=self.senior_engineer_agent(),
+            config=self.tasks_config.get("generate_question_task"),
+            agent=self.exercise_generator_agent(),
         )
 
     @task
     def evaluate_task(self) -> Task:
         return Task(
             config=self.tasks_config.get("evaluate_task"),
-            agent=self.chief_qa_engineer_agent(),
+            agent=self.evaluator_agent(),
         )
 
     @crew
     def crew(self) -> Crew:
-        """Creates the Dev Crew"""
+        """Creates the Study Helper Crew"""
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
