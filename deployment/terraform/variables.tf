@@ -119,7 +119,7 @@ variable "cicd_roles" {
 variable "cicd_sa_deployment_required_roles" {
   description = "List of roles to assign to the CICD runner service account for the Staging and Prod projects."
   type        = list(string)
-  default = [    
+  default = [
     "roles/iam.serviceAccountUser",
     "roles/aiplatform.user",
     "roles/storage.admin"
@@ -134,6 +134,6 @@ variable "data_store_region" {
 
 variable "datastore_name" {
   description = "The name of the datastore"
-  type = string
-  default = "study-helper-datastore"
+  type        = string
+  default     = "study-help-datastore"
 }
