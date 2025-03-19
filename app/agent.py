@@ -51,10 +51,11 @@ retriever = get_retriever(
     data_store_region=data_store_region,
     embedding=embedding,
     embedding_column=EMBEDDING_COLUMN,
-    max_documents=10,
+    max_documents=20,
 )
 compressor = get_compressor(
     project_id=project_id,
+    top_n=20
 )
 
 
@@ -89,7 +90,7 @@ def should_continue() -> None:
 
 tools = [retrieve_docs, should_continue]
 
-llm = ChatVertexAI(model=LLM, temperature=0, max_tokens=1024, streaming=True)
+llm = ChatVertexAI(model=LLM, temperature=0, max_tokens=8000, streaming=True)
 
 # Set up conversation inspector
 inspect_conversation = inspect_conversation_template | llm.bind_tools(
