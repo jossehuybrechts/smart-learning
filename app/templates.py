@@ -57,7 +57,7 @@ rag_template = ChatPromptTemplate.from_messages(
 
             If you cannot find any information in the context about the given subject and chapter, state that you do not have information to formulate or evaluate an exercise.
 
-            After generating each exercise, provide a score indicating the difficulty level of the question. Use a scale of 1 to 5, where 1 is very easy and 5 is very difficult. Display the difficulty as follows: Moeilijkheidsgraad: (moeilijkheidsgraad)/5.
+            After generating each exercise, provide a score indicating the difficulty level of the question. Use a scale of 1 to 5, where 1 is very easy and 5 is very difficult. Display the difficulty as follows: Difficulty: (Difficulty)/5.
             
             After formulating the question, also display the max score of this question. The max score should be tailored to the difficulty, type and extensiveness of the question.
             
