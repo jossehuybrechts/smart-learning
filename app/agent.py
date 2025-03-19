@@ -19,34 +19,84 @@ from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
-
-from .crew.crew import StudyHelperCrew
+from langchain_core.documents import Document
+import os
+import google
+import vertexai
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from app.retrievers import get_compressor, get_retriever
+from app.templates import format_docs, inspect_conversation_template, rag_template
 
 LOCATION = "us-central1"
 LLM = "gemini-2.0-flash-001"
+EMBEDDING_MODEL = "text-embedding-005"
+EMBEDDING_COLUMN = "embedding"
+TOP_K = 5
+
+data_store_region = os.getenv("DATA_STORE_REGION", "us")
+data_store_id = os.getenv("DATA_STORE_ID", "study-help-datastore")
+
+credentials, project_id = google.auth.default()
+vertexai.init(project=project_id, location=LOCATION)
+
+embedding = VertexAIEmbeddings(
+    project=project_id, location=LOCATION, model_name=EMBEDDING_MODEL
+)
+
+retriever = get_retriever(
+    project_id=project_id,
+    data_store_id=data_store_id,
+    data_store_region=data_store_region,
+    embedding=embedding,
+    embedding_column=EMBEDDING_COLUMN,
+    max_documents=10,
+)
+compressor = get_compressor(
+    project_id=project_id,
+)
+
+llm = ChatVertexAI(model=LLM, temperature=0, max_tokens=1024, streaming=True)
 
 
-@tool
-def study_helper_tool(topic: str, age: int) -> str:
-    """Use this tool to generate sample test questions and evaluate the students their answers. Give them constructive feedback."""
-    inputs = {"topic": topic, "age": age}
-    return StudyHelperCrew().crew().kickoff(inputs=inputs)
 
+@tool(response_format="content_and_artifact")
+def retrieve_docs(query: str) -> tuple[str, list[Document]]:
+    """
+    Useful for retrieving relevant documents based on a query.
+    Use this when you need additional information to answer a question.
 
-tools = [study_helper_tool]
+    Args:
+        query (str): The user's question or search query.
 
-# 2. Set up the language model
-llm = ChatVertexAI(
-    model=LLM, location=LOCATION, temperature=0, max_tokens=4096, streaming=True
-).bind_tools(tools)
+    Returns:
+        List[Document]: A list of the top-ranked Document objects, limited to TOP_K (5) results.
+    """
+    # Use the retriever to fetch relevant documents based on the query
+    retrieved_docs = retriever.invoke(query)
+    # Re-rank docs with Vertex AI Rank for better relevance
+    ranked_docs = compressor.compress_documents(documents=retrieved_docs, query=query)
+    # Format ranked documents into a consistent structure for LLM consumption
+    formatted_docs = format_docs.format(docs=ranked_docs)
 
+    return formatted_docs, ranked_docs
+
+tools = [retrieve_docs]
+
+# Set up response chain
+response_chain = rag_template | llm.bind_tools(tools=tools)
+
+def generate_node(
+    state: MessagesState, config: RunnableConfig
+) -> dict[str, BaseMessage]:
+    """Generates a response using the RAG template and returns it as a message."""
+    response = response_chain.invoke(state, config)
+    return {"messages": response}
 
 # 3. Define workflow components
 def should_continue(state: MessagesState) -> str:
     """Determines whether to use the crew or end the conversation."""
     last_message = state["messages"][-1]
-    return "study_helper_crew" if last_message.tool_calls else END
-
+    return "exercise_generator_agent" if last_message.tool_calls else END
 
 def call_model(state: MessagesState, config: RunnableConfig) -> dict[str, BaseMessage]:
     """Calls the language model and returns the response."""
@@ -64,11 +114,9 @@ def call_model(state: MessagesState, config: RunnableConfig) -> dict[str, BaseMe
     #     "Be positive and encouriging at all times."
     # )
     system_message = (
-        "You are an expert Teacher.\n"
-        "Your role is to help the students prepare for tests and learn by practicing the materials "
-        "by giving them sample questions.\n"
-        "You ask the student what topic they want to practice and what age they have.\n"
-        "You can then use the tool to generate the questions and evaluate them."
+        "You are a helpful coaching agent. When the user asks for an exercise, first ask "
+        "on which kind on subject and chapter. Then "
+        "use your tool to generate an exercise on the subject and chapter given the knowledge base. "
     )
 
     messages_with_system = [{"type": "system", "content": system_message}] + state[
@@ -78,32 +126,26 @@ def call_model(state: MessagesState, config: RunnableConfig) -> dict[str, BaseMe
     response = llm.invoke(messages_with_system, config)
     return {"messages": response}
 
-
-def welcome(state: MessagesState) -> dict[str, BaseMessage]:
-    """Gives a welcome message to the student."""
-    if state["messages"]:
-        # We've already greeted the user
-        return {"messages": []}
-    # Return a greeting ,since no message has been sent
-    return {
-        "messages": [
-            AIMessage(
-                content="Hi welcome to the study helper crew.\nHow old are you and what topic would you like to practice?"
-            )
-        ]
-    }
-
-
 # 4. Create the workflow graph
 workflow = StateGraph(MessagesState)
-workflow.add_node("agent", lambda state: welcome(state))
-workflow.add_node("study_helper_crew", ToolNode(tools))
-workflow.set_entry_point("agent")
+workflow.add_node("coach_agent", call_model)
+workflow.add_node("exercise_generator_agent", generate_node)
+workflow.add_node(
+    "tools",
+    ToolNode(
+        tools=tools,
+        # With False, tool errors won't be caught by LangGraph
+        handle_tool_errors=False,
+    ),
+)
+
+workflow.set_entry_point("coach_agent")
 
 # 5. Define graph edges
-# workflow.add_conditional_edges("agent", should_continue)
-workflow.add_edge("agent", "study_helper_crew")
-workflow.add_conditional_edges("study_helper_crew", should_continue)
+# workflow.add_edge("coach_agent", "tools")
+workflow.add_edge("tools", "exercise_generator_agent")
+workflow.add_edge("exercise_generator_agent", "coach_agent")
+workflow.add_conditional_edges("coach_agent", should_continue)
 
 # 6. Compile the workflow
 agent = workflow.compile()
