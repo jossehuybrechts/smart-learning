@@ -25,7 +25,7 @@ import google
 import vertexai
 from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
 from app.retrievers import get_compressor, get_retriever
-from app.templates import format_docs, inspect_conversation_template, rag_template
+from app.templates import format_docs, rag_template
 
 LOCATION = "us-central1"
 LLM = "gemini-2.0-flash-001"
@@ -55,10 +55,6 @@ compressor = get_compressor(
     project_id=project_id,
 )
 
-llm = ChatVertexAI(model=LLM, temperature=0, max_tokens=1024, streaming=True)
-
-
-
 @tool(response_format="content_and_artifact")
 def retrieve_docs(query: str) -> tuple[str, list[Document]]:
     """
@@ -82,8 +78,14 @@ def retrieve_docs(query: str) -> tuple[str, list[Document]]:
 
 tools = [retrieve_docs]
 
+llm1 = ChatVertexAI(model=LLM, temperature=0, max_tokens=1024, streaming=True)
+
+llm2 = ChatVertexAI(model=LLM, temperature=0, max_tokens=1024, streaming=True).bind_tools(
+    tools, tool_choice="any"
+)
+
 # Set up response chain
-response_chain = rag_template | llm.bind_tools(tools=tools)
+response_chain = rag_template | llm1
 
 def generate_node(
     state: MessagesState, config: RunnableConfig
@@ -94,23 +96,22 @@ def generate_node(
 
 # 3. Define workflow components
 def should_continue(state: MessagesState) -> str:
-    """Determines whether to use the crew or end the conversation."""
+    """Determines whether to use tools or end the conversation."""
     last_message = state["messages"][-1]
-    return "exercise_generator_agent" if last_message.tool_calls else END
+    return "tools" if last_message.tool_calls else END
 
 def call_model(state: MessagesState, config: RunnableConfig) -> dict[str, BaseMessage]:
     """Calls the language model and returns the response."""
     system_message = (
         "You are a helpful coaching agent. When the user asks for an exercise, first ask "
-        "on which kind on subject and chapter. Then "
-        "use your tool to generate an exercise on the subject and chapter given the knowledge base. "
+        "on which kind on subject and chapter."
     )
 
     messages_with_system = [{"type": "system", "content": system_message}] + state[
         "messages"
     ]
     # Forward the RunnableConfig object to ensure the agent is capable of streaming the response.
-    response = llm.invoke(messages_with_system, config)
+    response = llm2.invoke(messages_with_system, config)
     return {"messages": response}
 
 # 4. Create the workflow graph
@@ -129,10 +130,10 @@ workflow.add_node(
 workflow.set_entry_point("coach_agent")
 
 # 5. Define graph edges
-# workflow.add_edge("coach_agent", "tools")
+workflow.add_conditional_edges("coach_agent", should_continue)
 workflow.add_edge("tools", "exercise_generator_agent")
 workflow.add_edge("exercise_generator_agent", "coach_agent")
-workflow.add_conditional_edges("coach_agent", should_continue)
+
 
 # 6. Compile the workflow
 agent = workflow.compile()

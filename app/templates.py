@@ -29,25 +29,14 @@ format_docs = PromptTemplate.from_template(
     template_format="jinja2",
 )
 
-inspect_conversation_template = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """
-            Only use the retrieve documents tool when asked to generate exercises
-            """,
-        ),
-        MessagesPlaceholder(variable_name="messages"),
-    ]
-)
-
 rag_template = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """
-            You are an exercise generator agent, that generates exercises based on the knowledge provided.
-            """,
+            """You are an AI assistant for question-answering tasks."""
+            """You need to generate an exercise on the provided context to help people study"""
+            """If the provided context has no relevant information, then don't generate an exercise, just state that you don't have 
+            relevant information to formulate an exercise."""
         ),
         MessagesPlaceholder(variable_name="messages"),
     ]
