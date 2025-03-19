@@ -33,9 +33,8 @@ inspect_conversation_template = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            """
-            Only use the retrieve documents tool when asked to generate exercises
-            """,
+            """You are an AI assistant tasked with generating sample questions based on the context provided."""
+            """ Before generating a question you need to know the topic for the questions and age of the student.""",
         ),
         MessagesPlaceholder(variable_name="messages"),
     ]
@@ -47,6 +46,7 @@ rag_template = ChatPromptTemplate.from_messages(
             "system",
             """
             You are an exercise generator agent, that generates exercises based on the knowledge provided.
+            Exercises should be generated one at a time so the student can answer only one question with a clear answer.
             """,
         ),
         MessagesPlaceholder(variable_name="messages"),

@@ -44,14 +44,14 @@ def get_retriever(
         project_id=project_id,
         data_store_id=data_store_id,
         location_id=data_store_region,
-        engine_data_type=1,
+        engine_data_type=0,
         # The following parameters are used when you want to search
         # using custom embeddings in Agent Builder.
         # The ratio is set to 0.5 by default to use a mix of custom
         # embeddings but you can adapt the ratio as you need.
-        custom_embedding_ratio=custom_embedding_ratio,
-        custom_embedding=embedding,
-        custom_embedding_field_path=embedding_column,
+        # custom_embedding_ratio=custom_embedding_ratio,
+        # custom_embedding=embedding,
+        # custom_embedding_field_path=embedding_column,
         # Extracting 20 documents before re-rank.
         max_documents=max_documents,
         beta=True,

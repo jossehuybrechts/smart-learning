@@ -63,7 +63,7 @@ class AgentEngineApp:
         # Initialize Telemetry
         try:
             Traceloop.init(
-                app_name="study-helper-agent",
+                app_name="AGENT_NAME",
                 disable_batch=False,
                 exporter=CloudTraceLoggingSpanExporter(project_id=self.project_id),
                 instruments={Instruments.LANGCHAIN, Instruments.CREW},
@@ -215,11 +215,11 @@ if __name__ == "__main__":
         help="GCP project ID (defaults to application default credentials)",
     )
     parser.add_argument(
-        "--location", default="us-central1", help="GCP region (defaults to us-central1)"
+        "--location", default="europe-west1", help="GCP region (defaults to europe-west1)"
     )
     parser.add_argument(
         "--agent-name",
-        default="study-helper-agent",
+        default="AGENT_NAME",
         help="Name for the agent engine",
     )
     parser.add_argument(
