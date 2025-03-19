@@ -29,8 +29,13 @@ resource "google_bigquery_table" "prod-question-answer-table" {
         "mode": "REQUIRED"
     },
     {
-        "name": "score",
-        "type": "STRING",
+        "name": "student_score",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+    },
+    {
+        "name": "max_score",
+        "type": "INTEGER",
         "mode": "REQUIRED"
     }
 ]
@@ -68,8 +73,13 @@ resource "google_bigquery_table" "staging-question-answer-table" {
         "mode": "REQUIRED"
     },
     {
-        "name": "score",
-        "type": "STRING",
+        "name": "student_score",
+        "type": "INTEGER",
+        "mode": "REQUIRED"
+    },
+    {
+        "name": "max_score",
+        "type": "INTEGER",
         "mode": "REQUIRED"
     }
 ]
