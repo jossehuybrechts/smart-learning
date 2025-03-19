@@ -77,7 +77,7 @@ rag_template = ChatPromptTemplate.from_messages(
                 - If the last score was below 50%, generate an easier question.
                 - If there is no previous score, start with a medium difficulty question.
 
-            Only answer in Dutch.
+            Only answer in English.
             """,
         ),
         MessagesPlaceholder(variable_name="messages"),
