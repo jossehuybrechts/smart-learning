@@ -60,7 +60,6 @@ compressor = get_compressor(
     top_n=20
 )
 
-
 @tool(response_format="content_and_artifact")
 def retrieve_docs(query: str) -> tuple[str, list[Document]]:
     """
@@ -97,7 +96,6 @@ def store_results(topic: str, question: str, answer: str, student_score: int, ma
 
     return None
 
-
 @tool
 def should_continue() -> None:
     """
@@ -105,8 +103,7 @@ def should_continue() -> None:
     """
     return None
 
-
-tools = [retrieve_docs, should_continue, store_results]
+tools = [retrieve_docs, store_results]
 
 llm = ChatVertexAI(model=LLM, temperature=0, max_tokens=8000, streaming=True)
 
@@ -117,7 +114,6 @@ inspect_conversation = inspect_conversation_template | llm.bind_tools(
 
 # Set up response chain
 response_chain = rag_template | llm
-
 
 def inspect_conversation_node(
     state: MessagesState, config: RunnableConfig
@@ -133,15 +129,6 @@ def generate_node(
     """Generates a response using the RAG template and returns it as a message."""
     response = response_chain.invoke(state, config)
     return {"messages": response}
-
-
-# Flow:
-# 1. Start with agent node that inspects conversation using inspect_conversation_node
-# 2. Agent node connects to tools node which can either:
-#    - Retrieve relevant docs using retrieve_docs tool
-#    - End tool usage with should_continue tool
-# 3. Tools node connects to generate node which produces final response
-# 4. Generate node connects to END to complete the workflow
 
 workflow = StateGraph(MessagesState)
 workflow.add_node("agent", inspect_conversation_node)
