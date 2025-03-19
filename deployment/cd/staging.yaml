@@ -105,7 +105,7 @@ steps:
         echo "_________________________________________________________________________"
 
 substitutions:
-  _STAGING_PROJECT_ID: YOUR_STAGING_PROJECT_ID
+  _STAGING_PROJECT_ID: qwiklabs-gcp-02-662fdf28d3fa
   _BUCKET_NAME_LOAD_TEST_RESULTS: ${PROJECT_ID}-cicd-load-test-results
   _REGION: us-central1
 
