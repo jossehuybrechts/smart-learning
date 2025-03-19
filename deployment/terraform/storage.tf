@@ -51,6 +51,7 @@ resource "google_discovery_engine_data_store" "data_store_staging" {
   display_name      = var.datastore_name
   industry_vertical = "GENERIC"
   content_config    = "CONTENT_REQUIRED"
+  solution_types    = ["SOLUTION_TYPE_SEARCH"]
   document_processing_config {
     default_parsing_config {
       digital_parsing_config {}
@@ -62,7 +63,7 @@ resource "google_discovery_engine_data_store" "data_store_staging" {
 
 resource "google_discovery_engine_search_engine" "search_engine_staging" {
   project        = var.staging_project_id
-  engine_id      = "${var.search_engine_name}"
+  engine_id      = var.search_engine_name
   collection_id  = "default_collection"
   location       = google_discovery_engine_data_store.data_store_staging.location
   display_name   = "Search Engine App Staging"
@@ -80,6 +81,7 @@ resource "google_discovery_engine_data_store" "data_store_prod" {
   display_name      = var.datastore_name
   industry_vertical = "GENERIC"
   content_config    = "CONTENT_REQUIRED"
+  solution_types    = ["SOLUTION_TYPE_SEARCH"]
   document_processing_config {
     default_parsing_config {
       digital_parsing_config {}
@@ -91,7 +93,7 @@ resource "google_discovery_engine_data_store" "data_store_prod" {
 
 resource "google_discovery_engine_search_engine" "search_engine_prod" {
   project        = var.prod_project_id
-  engine_id      = "${var.search_engine_name}"
+  engine_id      = var.search_engine_name
   collection_id  = "default_collection"
   location       = google_discovery_engine_data_store.data_store_prod.location
   display_name   = "Search Engine App Prod"

@@ -36,6 +36,8 @@ TOP_K = 5
 
 data_store_region = os.getenv("DATA_STORE_REGION", "us")
 data_store_id = os.getenv("DATA_STORE_ID", "study-help-datastore")
+bq_dataset_id = os.getenv("DATASET_ID", "study_helper")
+bq_table_id = os.getenv("TABLE_ID", "question_answer")
 
 # Initialize Google Cloud and Vertex AI
 credentials, project_id = google.auth.default()
@@ -81,6 +83,22 @@ def retrieve_docs(query: str) -> tuple[str, list[Document]]:
 
 
 @tool
+def store_results(topic: str, question: str, answer: str, score: str) -> None:
+    """
+    Use this tool store the result of the student answer in bigquery.
+    """
+    from google.cloud import bigquery
+
+    bigquery_client = bigquery.Client(location=LOCATION, project=project_id)
+    table_id = f"{project_id}.{bq_dataset_id}.{bq_table_id}"
+    table = bigquery_client.get_table(table_id)
+    rows_to_insert = [(topic, question, answer, score)]
+    bigquery_client.insert_rows(table, rows_to_insert)
+
+    return None
+
+
+@tool
 def should_continue() -> None:
     """
     Use this tool if you determine that you have enough context to respond to the questions of the user.
@@ -88,7 +106,7 @@ def should_continue() -> None:
     return None
 
 
-tools = [retrieve_docs, should_continue]
+tools = [retrieve_docs, should_continue, store_results]
 
 llm = ChatVertexAI(model=LLM, temperature=0, max_tokens=8000, streaming=True)
 
