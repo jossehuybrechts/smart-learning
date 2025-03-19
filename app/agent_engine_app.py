@@ -63,7 +63,7 @@ class AgentEngineApp:
         # Initialize Telemetry
         try:
             Traceloop.init(
-                app_name="AGENT_NAME",
+                app_name="student-helper-agent",
                 disable_batch=False,
                 exporter=CloudTraceLoggingSpanExporter(project_id=self.project_id),
                 instruments={Instruments.LANGCHAIN, Instruments.CREW},
@@ -171,7 +171,7 @@ def deploy_agent_engine_app(
     agent_config = {
         "reasoning_engine": agent,
         "display_name": agent_name,
-        "description": "This is a sample custom application in Agent Engine that uses LangGraph",
+        "description": "This is a an agent for helping students test their knowledge against various topics.",
         "extra_packages": extra_packages,
     }
     logging.info(f"Agent config: {agent_config}")
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--agent-name",
-        default="AGENT_NAME",
+        default="student-helper-agent",
         help="Name for the agent engine",
     )
     parser.add_argument(
