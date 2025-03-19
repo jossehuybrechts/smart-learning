@@ -69,3 +69,21 @@ variable "agentengine_sa_roles" {
     "roles/storage.admin"
   ]
 }
+
+variable "data_store_region" {
+  type        = string
+  description = "Google Cloud region for resource deployment."
+  default     = "us"
+}
+
+variable "datastore_name" {
+  description = "The name of the datastore"
+  type = string
+  default = "my-datastore"
+}
+
+variable "search_engine_name" {
+  description = "The name of the search engine"
+  type = string
+  default = "my-search-engine"
+}
