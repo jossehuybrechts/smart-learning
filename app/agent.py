@@ -83,7 +83,7 @@ def retrieve_docs(query: str) -> tuple[str, list[Document]]:
 
 
 @tool
-def store_results(topic: str, question: str, answer: str, score: str) -> None:
+def store_results(topic: str, question: str, answer: str, student_score: int, max_score: int) -> None:
     """
     Use this tool store the result of the student answer in bigquery.
     """
@@ -92,7 +92,7 @@ def store_results(topic: str, question: str, answer: str, score: str) -> None:
     bigquery_client = bigquery.Client(location=LOCATION, project=project_id)
     table_id = f"{project_id}.{bq_dataset_id}.{bq_table_id}"
     table = bigquery_client.get_table(table_id)
-    rows_to_insert = [(topic, question, answer, score)]
+    rows_to_insert = [(topic, question, answer, student_score, max_score)]
     bigquery_client.insert_rows(table, rows_to_insert)
 
     return None
