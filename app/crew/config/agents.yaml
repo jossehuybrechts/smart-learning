@@ -32,10 +32,11 @@ exercise_generator_agent:
 
   goal: >
     Give accurate and representative sample questions for the student to practice the topic they asked for.
+    Only give the students the questions, nothing else.
 
 
   backstory: >
-    You want to help children learn and improve their academic performance. You are a teacher who is passionate about helping students succeed.
+    You want to help children learn and improve their academic performance.
 
 
 

@@ -27,7 +27,11 @@ feedback_logs_filter = "jsonPayload.log_type=\"feedback\""
 cicd_runner_sa_name = "cicd-runner"
 
 suffix_bucket_name_load_test_results = "cicd-load-test-results"
+search_engine_name = "study-helper-search-engine"
+datastore_name = "study-help-datastore"
 repository_owner = "jossehuybrechts"
 github_app_installation_id = "62856213"
 github_pat_secret_id = "github-connection-github-oauthtoken-d8a9f8"
 connection_exists = true
+#The value can only be one of "global", "us" and "eu".
+data_store_region = "us"

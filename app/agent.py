@@ -13,27 +13,27 @@
 # limitations under the License.
 
 # mypy: disable-error-code="union-attr"
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_google_vertexai import ChatVertexAI
 from langgraph.graph import END, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from .crew.crew import DevCrew
+from .crew.crew import StudyHelperCrew
 
 LOCATION = "us-central1"
 LLM = "gemini-2.0-flash-001"
 
 
 @tool
-def coding_tool(code_instructions: str) -> str:
-    """Use this tool to write a python program given a set of requirements and or instructions."""
-    inputs = {"code_instructions": code_instructions}
-    return DevCrew().crew().kickoff(inputs=inputs)
+def study_helper_tool(topic: str, age: int) -> str:
+    """Use this tool to generate sample test questions and evaluate the students their answers. Give them constructive feedback."""
+    inputs = {"topic": topic, "age": age}
+    return StudyHelperCrew().crew().kickoff(inputs=inputs)
 
 
-tools = [coding_tool]
+tools = [study_helper_tool]
 
 # 2. Set up the language model
 llm = ChatVertexAI(
@@ -45,23 +45,30 @@ llm = ChatVertexAI(
 def should_continue(state: MessagesState) -> str:
     """Determines whether to use the crew or end the conversation."""
     last_message = state["messages"][-1]
-    return "dev_crew" if last_message.tool_calls else END
+    return "study_helper_crew" if last_message.tool_calls else END
 
 
 def call_model(state: MessagesState, config: RunnableConfig) -> dict[str, BaseMessage]:
     """Calls the language model and returns the response."""
+    # system_message = (
+    #     "You are an expert Teacher.\n"
+    #     "Your role is to help the students prepare for tests and learn by practicing the materials "
+    #     "by giving them sample questions.\n"
+    #     "You will evaluate the answer of the students and give them feedback.\n"
+    #     "Questions are asked one by one so the student can focus on one question at a time.\n"
+    #     "If the answer of the student is incorrect, you will correct them in a constructive and positive way.\n"
+    #     "If their answer is incomplete you give them the complete answer.\n"
+    #     "If the answer is very close to the correct one but has some spelling mistakes, the answer is correct but you can correct their spelling mistakes.\n"
+    #     "Keep on giving them questions until they say they have had enough, you don't need to ask for confirmation to give them the following question.\n"
+    #     "Remember, you are an expert teacher trying to encourage the students to keep on learning.\n "
+    #     "Be positive and encouriging at all times."
+    # )
     system_message = (
-        "You are an expert Lead Software Engineer Manager.\n"
-        "Your role is to speak to a user and understand what kind of code they need to "
-        "build.\n"
-        "Part of your task is therefore to gather requirements and clarifying ambiguity "
-        "by asking followup questions. Don't ask all the questions together as the user "
-        "has a low attention span, rather ask a question at the time.\n"
-        "Once the problem to solve is clear, you will call your tool for writing the "
-        "solution.\n"
-        "Remember, you are an expert in understanding requirements but you cannot code, "
-        "use your coding tool to generate a solution. Keep the test cases if any, they "
-        "are useful for the user."
+        "You are an expert Teacher.\n"
+        "Your role is to help the students prepare for tests and learn by practicing the materials "
+        "by giving them sample questions.\n"
+        "You ask the student what topic they want to practice and what age they have.\n"
+        "You can then use the tool to generate the questions and evaluate them."
     )
 
     messages_with_system = [{"type": "system", "content": system_message}] + state[
@@ -72,15 +79,33 @@ def call_model(state: MessagesState, config: RunnableConfig) -> dict[str, BaseMe
     return {"messages": response}
 
 
+def welcome(state: MessagesState) -> dict[str, BaseMessage]:
+    """Gives a welcome message to the student."""
+    if state["messages"]:
+        # We've already greeted the user
+        return {"messages": []}
+    # Return a greeting ,since no message has been sent
+    return {
+        "messages": [
+            AIMessage(
+                content="Hi welcome to the study helper crew.\nHow old are you and what topic would you like to practice?"
+            )
+        ]
+    }
+
+
 # 4. Create the workflow graph
 workflow = StateGraph(MessagesState)
-workflow.add_node("agent", call_model)
-workflow.add_node("dev_crew", ToolNode(tools))
+workflow.add_node("agent", lambda state: welcome(state))
+workflow.add_node("study_helper_crew", ToolNode(tools))
 workflow.set_entry_point("agent")
 
 # 5. Define graph edges
-workflow.add_conditional_edges("agent", should_continue)
-workflow.add_edge("dev_crew", "agent")
+# workflow.add_conditional_edges("agent", should_continue)
+workflow.add_edge("agent", "study_helper_crew")
+workflow.add_conditional_edges("study_helper_crew", should_continue)
 
 # 6. Compile the workflow
 agent = workflow.compile()
+
+agent.invoke({"messages": []})

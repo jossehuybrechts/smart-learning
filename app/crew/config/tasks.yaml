@@ -14,25 +14,27 @@
 
 generate_question_task:
   description: >
-    You are generating a sample exam question about the topic requested. These are the instructions:
-    
-    Instructions ------------ {question_instruction}
+    You are helping the student to study and practice by generating a sample exam question about the topic requested. These are the instructions:
 
+    Topic ------------ {topic}
+    Age ------------ {age}
+
+    Always give questions one at a time so the student can focus on one question at a time.
 
   expected_output: >
-    Your Final answer must be the topic and question.
-
+    Output should be in the following format
+    Topic: question
+    Just the question, nothing else
 
 evaluate_task:
   description: >
-    You are evaluating the response to the asked question. These are the instructions:
-    
-    Question ------------ {question}
-    Answer ------------ {answer}
-    
-    You will check if the answer is a correct and complete response to the question. Give additional information if needed or correct the answer if it is incorrect. If the answer is correct and complete, congratulate the student.
+    You are helping the student to study and practice by generating a sample exam question about the topic requested. These are the instructions:
 
+    Topic ------------ {topic}
+    Age ------------ {age}
+
+    You will check if the answer is a correct and complete response to the question. Give additional information if needed or correct the answer if it is incorrect. If the answer is correct and complete, congratulate the student.
+    Always be respectful and encouraging. After evaluating a task give them the next question.
 
   expected_output: >
     Your Final answer must be the full feedback for the student.
-

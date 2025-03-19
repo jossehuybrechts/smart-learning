@@ -137,3 +137,9 @@ variable "datastore_name" {
   type        = string
   default     = "study-help-datastore"
 }
+
+variable "search_engine_name" {
+  description = "The name of the search engine"
+  type = string
+  default = "study-helper-search-engine"
+}

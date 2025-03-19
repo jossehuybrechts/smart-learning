@@ -60,6 +60,19 @@ resource "google_discovery_engine_data_store" "data_store_staging" {
   depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
 }
 
+resource "google_discovery_engine_search_engine" "search_engine_staging" {
+  project        = var.staging_project_id
+  engine_id      = "${var.search_engine_name}"
+  collection_id  = "default_collection"
+  location       = google_discovery_engine_data_store.data_store_staging.location
+  display_name   = "Search Engine App Staging"
+  data_store_ids = [google_discovery_engine_data_store.data_store_staging.data_store_id]
+  search_engine_config {
+    search_tier = "SEARCH_TIER_ENTERPRISE"
+  }
+  provider = google.staging_billing_override
+}
+
 resource "google_discovery_engine_data_store" "data_store_prod" {
   location          = var.data_store_region
   project           = var.prod_project_id
@@ -74,4 +87,17 @@ resource "google_discovery_engine_data_store" "data_store_prod" {
   }
   provider   = google.prod_billing_override
   depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
+}
+
+resource "google_discovery_engine_search_engine" "search_engine_prod" {
+  project        = var.prod_project_id
+  engine_id      = "${var.search_engine_name}"
+  collection_id  = "default_collection"
+  location       = google_discovery_engine_data_store.data_store_prod.location
+  display_name   = "Search Engine App Prod"
+  data_store_ids = [google_discovery_engine_data_store.data_store_prod.data_store_id]
+  search_engine_config {
+    search_tier = "SEARCH_TIER_ENTERPRISE"
+  }
+  provider = google.prod_billing_override
 }
