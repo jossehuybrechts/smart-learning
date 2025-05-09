@@ -14,8 +14,8 @@
 
 import logging
 
+import google.cloud.storage as storage
 from google.api_core import exceptions
-from google.cloud import storage
 
 
 def create_bucket_if_not_exists(bucket_name: str, project: str, location: str) -> None:
@@ -24,7 +24,7 @@ def create_bucket_if_not_exists(bucket_name: str, project: str, location: str) -
     Args:
         bucket_name: Name of the bucket to create
         project: Google Cloud project ID
-        location: Location to create the bucket in (defaults to europe-west1)
+        location: Location to create the bucket in (defaults to us-central1)
     """
     storage_client = storage.Client(project=project)
 

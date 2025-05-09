@@ -54,22 +54,12 @@ class ChatStreamUser(HttpUser):
         """Simulates a chat stream interaction."""
         headers = {"Content-Type": "application/json"}
         headers["Authorization"] = f"Bearer {os.environ['_AUTH_TOKEN']}"
-
         data = {
             "input": {
-                "input": {
-                    "messages": [
-                        {"type": "human", "content": "Hello, AI!"},
-                        {"type": "ai", "content": "Hello!"},
-                        {"type": "human", "content": "How are you?"},
-                    ]
-                },
-                "config": {
-                    "metadata": {"user_id": "test-user", "session_id": "test-session"}
-                },
+                "message": "What's the weather in San Francisco?",
+                "user_id": "test",
             }
         }
-
         start_time = time.time()
         with self.client.post(
             url_path,

@@ -16,12 +16,10 @@ import os
 from datetime import datetime
 
 import yaml
-from langchain_core.chat_history import BaseChatMessageHistory
-
-from frontend.utils.title_summary import chain_title
+from utils.title_summary import get_title
 
 
-class LocalChatMessageHistory(BaseChatMessageHistory):
+class LocalChatMessageHistory:
     """Manages local storage and retrieval of chat message history."""
 
     def __init__(
@@ -29,12 +27,18 @@ class LocalChatMessageHistory(BaseChatMessageHistory):
         user_id: str,
         session_id: str = "default",
         base_dir: str = ".streamlit_chats",
+        project: str = "project",
+        location: str = "location",
+        llm: str = "gemini-flas",
     ) -> None:
         self.user_id = user_id
         self.session_id = session_id
         self.base_dir = base_dir
         self.user_dir = os.path.join(self.base_dir, self.user_id)
         self.session_file = os.path.join(self.user_dir, f"{session_id}.yaml")
+        self.project = project
+        self.location = location
+        self.llm = llm
 
         os.makedirs(self.user_dir, exist_ok=True)
 
@@ -107,14 +111,22 @@ class LocalChatMessageHistory(BaseChatMessageHistory):
             messages = [
                 msg
                 for msg in messages
-                if msg["type"] in ("ai", "human") and isinstance(msg["content"], str)
+                if msg["type"] in ("ai", "human")
+                and "content" in msg
+                and isinstance(msg["content"], str)
             ]
 
-            response = chain_title.invoke(messages)
+            response = get_title(
+                project=self.project,
+                location=self.location,
+                llm=self.llm,
+                messages=messages,
+            )
+
             title = (
-                response.content.strip()
-                if isinstance(response.content, str)
-                else str(response.content)
+                response.candidates[0].content.parts[0].text.strip()
+                if isinstance(response.candidates[0].content.parts[0].text, str)
+                else str(response.candidates[0].content.parts[0].text)
             )
             session["title"] = title
             self.upsert_session(session)

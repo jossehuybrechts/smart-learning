@@ -14,6 +14,9 @@
 
 MARKDOWN_STR = """
 <style>
+[data-testid="stDecoration"] {
+    background: linear-gradient(90deg, #517BBC, #DAEFF7, #FBBB07);
+}
 button[kind="primary"] {
     background: none!important;
     border: 0;
@@ -26,7 +29,7 @@ button[kind="primary"] {
 }
 button[kind="primary"]:hover {
     text-decoration: none;
-    color: white !important;
+    color: grey !important;
 }
 button[kind="primary"]:focus {
     outline: none !important;

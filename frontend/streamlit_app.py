@@ -14,35 +14,37 @@
 
 # mypy: disable-error-code="arg-type"
 import json
+import os
 import uuid
 from collections.abc import Sequence
 from functools import partial
 from typing import Any
 
 import streamlit as st
-from langchain_core.messages import HumanMessage
+from side_bar import SideBar
 from streamlit_feedback import streamlit_feedback
-
-from frontend.side_bar import SideBar
-from frontend.style.app_markdown import MARKDOWN_STR
-from frontend.utils.local_chat_history import LocalChatMessageHistory
-from frontend.utils.message_editing import MessageEditing
-from frontend.utils.multimodal_utils import format_content, get_parts_from_files
-from frontend.utils.stream_handler import Client, StreamHandler, get_chain_response
+from style.app_markdown import MARKDOWN_STR
+from utils.local_chat_history import LocalChatMessageHistory
+from utils.message_editing import MessageEditing
+from utils.multimodal_utils import format_content, get_parts_from_files
+from utils.stream_handler import Client, StreamHandler, get_chain_response
 
 USER = "my_user"
 EMPTY_CHAT_NAME = "Empty chat"
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "agents-hackathon-2b70")
+LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "europe-west1")
+LLM = os.getenv("GEMINI_LLM", "gemini-2.0-flash")
 
 
 def setup_page() -> None:
     """Configure the Streamlit page settings."""
     st.set_page_config(
-        page_title="Playground",
+        page_title="Study Agent",
         layout="wide",
         initial_sidebar_state="auto",
         menu_items=None,
     )
-    st.title("Playground")
+    st.title("Study Agent")
     st.markdown(MARKDOWN_STR, unsafe_allow_html=True)
 
 
@@ -58,6 +60,9 @@ def initialize_session_state() -> None:
         st.session_state.session_db = LocalChatMessageHistory(
             session_id=st.session_state["session_id"],
             user_id=st.session_state["user_id"],
+            project=PROJECT_ID,
+            location=LOCATION,
+            llm=LLM,
         )
         st.session_state.user_chats = (
             st.session_state.session_db.get_all_conversations()
@@ -68,25 +73,28 @@ def initialize_session_state() -> None:
         }
 
 
-def display_messages() -> None:
+def display_messages(side_bar) -> None:
     """Display all messages in the current chat session."""
     messages = st.session_state.user_chats[st.session_state["session_id"]]["messages"]
-    tool_calls_map = {}  # Map tool_call_id to tool call input
+    tool_calls = []  # List of tool calls
+    if len(messages) == 0:
+        generate_ai_response(
+            user_id=str.lower(side_bar.user).replace(" ", "_")
+            if side_bar.user != ""
+            else "unknown",
+            remote_agent_engine_id=side_bar.remote_agent_engine_id,
+            agent_callable_path=side_bar.agent_callable_path,
+        )
 
     for i, message in enumerate(messages):
-        if message["type"] in ["ai", "human"] and message["content"]:
+        if message["type"] in ["ai", "human"] and message.get("content"):
             display_chat_message(message, i)
         elif message.get("tool_calls"):
             # Store each tool call input mapped by its ID
             for tool_call in message["tool_calls"]:
-                tool_calls_map[tool_call["id"]] = tool_call
+                tool_calls.append(tool_call)
         elif message["type"] == "tool":
-            # Look up the corresponding tool call input by ID
-            tool_call_id = message["tool_call_id"]
-            if tool_call_id in tool_calls_map:
-                display_tool_output(tool_calls_map[tool_call_id], message)
-            else:
-                st.error(f"Could not find tool call input for ID: {tool_call_id}")
+            display_tool_output(tool_calls[-1], message)
         else:
             st.error(f"Unexpected message type: {message['type']}")
             st.write("Full messages list:", messages)
@@ -162,23 +170,26 @@ def handle_user_input(side_bar: SideBar) -> None:
     prompt = st.chat_input() or st.session_state.modified_prompt
     if prompt:
         st.session_state.modified_prompt = None
-        parts = get_parts_from_files(
-            upload_gcs_checkbox=st.session_state.checkbox_state,
-            uploaded_files=side_bar.uploaded_files,
-            gcs_uris=side_bar.gcs_uris,
-        )
+        # parts = get_parts_from_files(
+        #     upload_gcs_checkbox=st.session_state.checkbox_state,
+        #     uploaded_files=side_bar.uploaded_files,
+        #     gcs_uris=side_bar.gcs_uris,
+        # )
+        parts = []
         st.session_state["gcs_uris_to_be_sent"] = ""
         parts.append({"type": "text", "text": prompt})
         st.session_state.user_chats[st.session_state["session_id"]]["messages"].append(
-            HumanMessage(content=parts).model_dump()
+            {"content": parts, "type": "human"}
+            # HumanMessage(content=parts).model_dump()
         )
 
         display_user_input(parts)
         generate_ai_response(
+            user_id=str.lower(side_bar.user).replace(" ", "_")
+            if side_bar.user != ""
+            else "unknown",
             remote_agent_engine_id=side_bar.remote_agent_engine_id,
             agent_callable_path=side_bar.agent_callable_path,
-            url=side_bar.url_input_field,
-            authenticate_request=side_bar.should_authenticate_request,
         )
         update_chat_title()
         if len(parts) > 1:
@@ -195,10 +206,9 @@ def display_user_input(parts: Sequence[dict[str, Any]]) -> None:
 
 
 def generate_ai_response(
+    user_id: str | None = None,
     remote_agent_engine_id: str | None = None,
     agent_callable_path: str | None = None,
-    url: str | None = None,
-    authenticate_request: bool = False,
 ) -> None:
     """Generate and display the AI's response to the user's input."""
     ai_message = st.chat_message("ai")
@@ -208,10 +218,10 @@ def generate_ai_response(
         client = Client(
             remote_agent_engine_id=remote_agent_engine_id,
             agent_callable_path=agent_callable_path,
-            url=url,
-            authenticate_request=authenticate_request,
         )
-        get_chain_response(st=st, client=client, stream_handler=stream_handler)
+        get_chain_response(
+            st=st, user_id=user_id, client=client, stream_handler=stream_handler
+        )
         status.update(label="Finished!", state="complete", expanded=False)
 
 
@@ -238,12 +248,7 @@ def display_feedback(side_bar: SideBar) -> None:
             key=f"feedback-{st.session_state.run_id}",
         )
         if feedback is not None:
-            client = Client(
-                remote_agent_engine_id=side_bar.remote_agent_engine_id,
-                agent_callable_path=side_bar.agent_callable_path,
-                url=side_bar.url_input_field,
-                authenticate_request=side_bar.should_authenticate_request,
-            )
+            client = Client(remote_agent_engine_id=side_bar.remote_agent_engine_id)
             client.log_feedback(
                 feedback_dict=feedback,
                 run_id=st.session_state.run_id,
@@ -256,7 +261,7 @@ def main() -> None:
     initialize_session_state()
     side_bar = SideBar(st=st)
     side_bar.init_side_bar()
-    display_messages()
+    display_messages(side_bar=side_bar)
     handle_user_input(side_bar=side_bar)
     display_feedback(side_bar=side_bar)
 

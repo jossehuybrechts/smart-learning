@@ -13,19 +13,16 @@
 # limitations under the License.
 
 # mypy: disable-error-code="assignment"
-import os
-from typing import Any
 
-import google.auth
-from langchain_core.messages import AIMessage
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_google_vertexai import ChatVertexAI
+import vertexai
+from vertexai.generative_models import GenerativeModel
 
-title_template = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            """Given a list of messages between a human and AI, come up with a short and relevant title for the conversation. Use up to 10 words. The title needs to be concise.
+
+def get_title(project: str, location: str, llm: str, messages) -> str:
+    vertexai.init(project=project, location=location)
+    model = GenerativeModel(model_name=llm)
+
+    response = model.generate_content(f"""Given a list of messages between a human and AI, come up with a short and relevant title for the conversation. Use up to 10 words. The title needs to be concise.
 Examples:
 **Input:**
 ```
@@ -66,29 +63,8 @@ AI: There are many ways to learn to code, and the best method for you will depen
 
 If there's not enough context in the conversation to create a meaningful title, create a generic title like "New Conversation", or "A simple greeting".
 
-""",
-        ),
-        MessagesPlaceholder(variable_name="messages"),
-    ]
-)
-try:
-    # Initialize Vertex AI with default project credentials
-    _, project_id = google.auth.default()
 
-    llm = ChatVertexAI(
-        model_name="gemini-2.0-flash-001",
-        temperature=0,
-        project=project_id,
-        location=os.getenv("LOCATION", "us-central1"),
-    )
-    chain_title = title_template | llm
-
-except Exception:
-    # Fallback to a simple title generator when Vertex AI is unavailable
-    print("WARNING: Failed to initialize Vertex AI. Using dummy LLM instead.")
-
-    class DummyChain:
-        def invoke(*args: Any, **kwargs: Any) -> AIMessage:
-            return AIMessage(content="conversation")
-
-    chain_title = DummyChain()
+** Chat History: **
+{messages}
+""")
+    return response

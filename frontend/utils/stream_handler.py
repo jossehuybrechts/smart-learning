@@ -14,23 +14,14 @@
 
 # mypy: disable-error-code="unreachable"
 import importlib
-import json
 import uuid
 from collections.abc import Generator
 from typing import Any
-from urllib.parse import urljoin
 
-import google.auth
-import google.auth.transport.requests
-import google.oauth2.id_token
-import requests
 import streamlit as st
 import vertexai
-from google.auth.exceptions import DefaultCredentialsError
-from langchain_core.messages import AIMessage, ToolMessage
-from vertexai.preview import reasoning_engines
-
-from frontend.utils.multimodal_utils import format_content
+from utils.multimodal_utils import format_content
+from vertexai import agent_engines
 
 st.cache_resource.clear()
 
@@ -43,28 +34,7 @@ def get_remote_agent(remote_agent_engine_id: str) -> Any:
     project_id = parts[1]
     location = parts[3]
     vertexai.init(project=project_id, location=location)
-    return reasoning_engines.ReasoningEngine(remote_agent_engine_id)
-
-
-@st.cache_resource
-def get_remote_url_config(url: str, authenticate_request: bool) -> dict[str, Any]:
-    """Get cached remote URL agent configuration."""
-    stream_url = urljoin(url, "stream_messages")
-    creds, _ = google.auth.default()
-    id_token = None
-    if authenticate_request:
-        auth_req = google.auth.transport.requests.Request()
-        try:
-            id_token = google.oauth2.id_token.fetch_id_token(auth_req, stream_url)
-        except DefaultCredentialsError:
-            creds.refresh(auth_req)
-            id_token = creds.id_token
-    return {
-        "url": stream_url,
-        "authenticate_request": authenticate_request,
-        "creds": creds,
-        "id_token": id_token,
-    }
+    return agent_engines.AgentEngine(remote_agent_engine_id)
 
 
 @st.cache_resource()
@@ -72,7 +42,7 @@ def get_local_agent(agent_callable_path: str) -> Any:
     """Get cached local agent instance."""
     module_path, class_name = agent_callable_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
-    agent = getattr(module, class_name)()
+    agent = getattr(module, class_name)(agent=module.root_agent)
     agent.set_up()
     return agent
 
@@ -84,29 +54,16 @@ class Client:
         self,
         agent_callable_path: str | None = None,
         remote_agent_engine_id: str | None = None,
-        url: str | None = None,
-        authenticate_request: bool = False,
     ) -> None:
         """Initialize the Client with appropriate configuration.
 
         Args:
             agent_callable_path: Path to local agent class
             remote_agent_engine_id: ID of remote Agent engine
-            url: URL for remote service
-            authenticate_request: Whether to authenticate requests to remote URL
         """
-        if url:
-            remote_config = get_remote_url_config(url, authenticate_request)
-            self.url = remote_config["url"]
-            self.authenticate_request = remote_config["authenticate_request"]
-            self.creds = remote_config["creds"]
-            self.id_token = remote_config["id_token"]
-            self.agent = None
-        elif remote_agent_engine_id:
+        if remote_agent_engine_id:
             self.agent = get_remote_agent(remote_agent_engine_id)
-            self.url = None
         else:
-            self.url = None
             if agent_callable_path is None:
                 raise ValueError("agent_callable_path cannot be None")
             self.agent = get_local_agent(agent_callable_path)
@@ -128,48 +85,43 @@ class Client:
         feedback_dict["run_id"] = run_id
         feedback_dict["log_type"] = "feedback"
         feedback_dict.pop("type")
-        url = urljoin(self.url, "feedback")
-        headers = {
-            "Content-Type": "application/json",
-        }
-        if self.url:
-            url = urljoin(self.url, "feedback")
-            headers = {
-                "Content-Type": "application/json",
-            }
-            if self.authenticate_request:
-                headers["Authorization"] = f"Bearer {self.id_token}"
-            requests.post(
-                url, data=json.dumps(feedback_dict), headers=headers, timeout=10
-            )
-        elif self.agent is not None:
+        if self.agent is not None:
             self.agent.register_feedback(feedback=feedback_dict)
         else:
-            raise ValueError("No agent or URL configured for feedback logging")
+            raise ValueError("No agent configured for feedback logging")
 
     def stream_messages(
         self, data: dict[str, Any]
     ) -> Generator[dict[str, Any], None, None]:
         """Stream events from the server, yielding parsed event data."""
-        if self.url:
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "text/event-stream",
-            }
-            if self.authenticate_request:
-                headers["Authorization"] = f"Bearer {self.id_token}"
-            with requests.post(
-                self.url, json=data, headers=headers, stream=True, timeout=10
-            ) as response:
-                for line in response.iter_lines():
-                    if line:
-                        try:
-                            event = json.loads(line.decode("utf-8"))
-                            yield event
-                        except json.JSONDecodeError:
-                            print(f"Failed to parse event: {line.decode('utf-8')}")
-        elif self.agent is not None:
-            yield from self.agent.stream_query(**data)
+        if type(self.agent.list_sessions(user_id=data["user_id"])) is not dict:
+            sessions = self.agent.list_sessions(user_id=data["user_id"]).model_dump()[
+                "sessions"
+            ]
+        else:
+            sessions = self.agent.list_sessions(user_id=data["user_id"])["sessions"]
+        if data["session_id"] not in [session["id"] for session in sessions]:
+            self.agent.create_session(
+                # app_name=data["app_id"],
+                session_id=data["session_id"],
+                user_id=data["user_id"],
+                state={
+                    "session_id": data["session_id"],
+                    "user_id": data["user_id"],
+                },
+            )
+
+        if type(self.agent.list_sessions(user_id=data["user_id"])) is not dict:
+            sessions = self.agent.list_sessions(user_id=data["user_id"]).model_dump()[
+                "sessions"
+            ]
+        else:
+            sessions = self.agent.list_sessions(user_id=data["user_id"])["sessions"]
+        yield from self.agent.stream_query(
+            session_id=data["session_id"],
+            user_id=data["user_id"],
+            message=data["message"],
+        )
 
 
 class StreamHandler:
@@ -197,9 +149,12 @@ class StreamHandler:
 class EventProcessor:
     """Processes events from the stream and updates the UI accordingly."""
 
-    def __init__(self, st: Any, client: Client, stream_handler: StreamHandler) -> None:
+    def __init__(
+        self, st: Any, user_id: str, client: Client, stream_handler: StreamHandler
+    ) -> None:
         """Initialize the EventProcessor with Streamlit context, client, and stream handler."""
         self.st = st
+        self.user_id = user_id
         self.client = client
         self.stream_handler = stream_handler
         self.final_content = ""
@@ -209,62 +164,70 @@ class EventProcessor:
 
     def process_events(self) -> None:
         """Process events from the stream, handling each event type appropriately."""
-        messages = self.st.session_state.user_chats[
-            self.st.session_state["session_id"]
-        ]["messages"]
+        if (
+            len(
+                self.st.session_state.user_chats[self.st.session_state["session_id"]][
+                    "messages"
+                ]
+            )
+            == 0
+        ):
+            message = " "
+        else:
+            message = self.st.session_state.user_chats[
+                self.st.session_state["session_id"]
+            ]["messages"][-1]["content"][0]["text"]
         self.current_run_id = str(uuid.uuid4())
         # Set run_id in session state at start of processing
         self.st.session_state["run_id"] = self.current_run_id
         stream = self.client.stream_messages(
             data={
-                "input": {"messages": messages},
-                "config": {
-                    "run_id": self.current_run_id,
-                    "metadata": {
-                        "user_id": self.st.session_state["user_id"],
-                        "session_id": self.st.session_state["session_id"],
-                    },
-                },
+                "app_id": self.st.session_state["app_id"],
+                "session_id": self.st.session_state["session_id"],
+                "user_id": self.user_id,
+                "message": message,
             }
         )
         # Each event is a tuple message, metadata. https://langchain-ai.github.io/langgraph/how-tos/streaming/#messages
-        for message, _ in stream:
+        for message in stream:
             if isinstance(message, dict):
-                if message.get("type") == "constructor":
-                    message = message["kwargs"]
+                for part in message["content"].get("parts"):
+                    # if message.get("type") == "constructor":
+                    #     message = message["kwargs"]
 
                     # Handle tool calls
-                    if message.get("tool_calls"):
-                        tool_calls = message["tool_calls"]
-                        ai_message = AIMessage(content="", tool_calls=tool_calls)
-                        self.tool_calls.append(ai_message.model_dump())
-                        for tool_call in tool_calls:
-                            msg = f"\n\nCalling tool: `{tool_call['name']}` with args: `{tool_call['args']}`"
-                            self.stream_handler.new_status(msg)
+                    if part.get("function_call"):
+                        function_call = part["function_call"]
+                        ai_message = {"type": "ai", "tool_calls": [function_call]}
+                        self.tool_calls.append(ai_message)
+                        msg = f"\n\nCalling tool: `{function_call['name']}` with args: `{function_call['args']}`"
+                        self.stream_handler.new_status(msg)
 
                     # Handle tool responses
-                    elif message.get("tool_call_id"):
-                        content = message["content"]
-                        tool_call_id = message["tool_call_id"]
-                        tool_message = ToolMessage(
-                            content=content, type="tool", tool_call_id=tool_call_id
-                        ).model_dump()
+                    elif part.get("function_response"):
+                        content = part["function_response"]
+                        tool_message = {"type": "tool", "content": content}
                         self.tool_calls.append(tool_message)
                         msg = f"\n\nTool response: `{content}`"
                         self.stream_handler.new_status(msg)
 
                     # Handle AI responses
-                    elif content := message.get("content"):
+                    elif content := part["text"]:
                         self.final_content += content
                         self.stream_handler.new_token(content)
 
         # Handle end of stream
         if self.final_content:
-            final_message = AIMessage(
-                content=self.final_content,
-                id=self.current_run_id,
-                additional_kwargs=self.additional_kwargs,
-            ).model_dump()
+            final_message = {
+                "content": self.final_content,
+                "type": "ai",
+                "id": self.current_run_id,
+            }
+            #     AIMessage(
+            #     content=self.final_content,
+            #     id=self.current_run_id,
+            #     additional_kwargs=self.additional_kwargs,
+            # ).model_dump()
             session = self.st.session_state["session_id"]
             self.st.session_state.user_chats[session]["messages"] = (
                 self.st.session_state.user_chats[session]["messages"] + self.tool_calls
@@ -273,7 +236,9 @@ class EventProcessor:
             self.st.session_state.run_id = self.current_run_id
 
 
-def get_chain_response(st: Any, client: Client, stream_handler: StreamHandler) -> None:
+def get_chain_response(
+    st: Any, user_id: str, client: Client, stream_handler: StreamHandler
+) -> None:
     """Process the chain response update the Streamlit UI.
 
     This function initiates the event processing for a chain of operations,
@@ -283,6 +248,7 @@ def get_chain_response(st: Any, client: Client, stream_handler: StreamHandler) -
     Args:
         st (Any): The Streamlit app instance, used for accessing session state
                  and updating the UI.
+        user_id (str): User Id of the user that uses the agent
         client (Client): An instance of the Client class used to stream events
                         from the server.
         stream_handler (StreamHandler): An instance of the StreamHandler class
@@ -297,5 +263,5 @@ def get_chain_response(st: Any, client: Client, stream_handler: StreamHandler) -
         - Modifies the session state to include the final AI message and run ID.
         - Handles various events like chain starts/ends, tool calls, and model outputs.
     """
-    processor = EventProcessor(st, client, stream_handler)
+    processor = EventProcessor(st, user_id, client, stream_handler)
     processor.process_events()

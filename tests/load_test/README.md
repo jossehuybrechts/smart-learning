@@ -39,4 +39,3 @@ Follow these steps to execute load tests:
    ```
 
    This command initiates a 30-second load test, simulating 2 users spawning per second, reaching a maximum of 10 concurrent users.
-

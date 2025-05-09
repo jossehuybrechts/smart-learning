@@ -12,35 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-import uuid
 from typing import (
-    Annotated,
-    Any,
     Literal,
 )
 
-from langchain_core.load.serializable import Serializable
-from langchain_core.messages import (
-    AIMessage,
-    HumanMessage,
-    ToolMessage,
-)
-from langchain_core.runnables import RunnableConfig
 from pydantic import (
     BaseModel,
-    Field,
 )
-
-
-class InputChat(BaseModel):
-    """Represents the input for a chat session."""
-
-    messages: list[
-        Annotated[HumanMessage | AIMessage | ToolMessage, Field(discriminator="type")]
-    ] = Field(
-        ..., description="The chat messages representing the current conversation."
-    )
 
 
 class Feedback(BaseModel):
@@ -48,55 +26,7 @@ class Feedback(BaseModel):
 
     score: int | float
     text: str | None = ""
-    run_id: str
+    invocation_id: str
     log_type: Literal["feedback"] = "feedback"
-
-
-def ensure_valid_config(config: RunnableConfig | None) -> RunnableConfig:
-    """Ensures a valid RunnableConfig by setting defaults for missing fields."""
-    if config is None:
-        config = RunnableConfig()
-    if config.get("run_id") is None:
-        config["run_id"] = uuid.uuid4()
-    if config.get("metadata") is None:
-        config["metadata"] = {}
-    return config
-
-
-def default_serialization(obj: Any) -> Any:
-    """
-    Default serialization for LangChain objects.
-    Converts BaseModel instances to JSON strings.
-    """
-    if isinstance(obj, Serializable):
-        return obj.to_json()
-
-
-def dumps(obj: Any) -> str:
-    """
-    Serialize an object to a JSON string.
-
-    For LangChain objects (BaseModel instances), it converts them to
-    dictionaries before serialization.
-
-    Args:
-        obj: The object to serialize
-
-    Returns:
-        JSON string representation of the object
-    """
-    return json.dumps(obj, default=default_serialization)
-
-
-def dumpd(obj: Any) -> Any:
-    """
-    Convert an object to a JSON-serializable dict.
-    Uses default_serialization for handling BaseModel instances.
-
-    Args:
-        obj: The object to convert
-
-    Returns:
-        Dict/list representation of the object that can be JSON serialized
-    """
-    return json.loads(dumps(obj))
+    service_name: Literal["study-helper-agent"] = "study-helper-agent"
+    user_id: str = ""
