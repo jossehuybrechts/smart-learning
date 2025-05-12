@@ -14,14 +14,14 @@
 
 # a. Create PR checks trigger
 resource "google_cloudbuild_trigger" "pr_checks" {
-  name            = "pr-checks"
+  name            = "pr-${var.project_name}"
   project         = var.cicd_runner_project_id
   location        = var.region
   description     = "Trigger for PR checks"
   service_account = resource.google_service_account.cicd_runner_sa.id
 
   repository_event_config {
-    repository = google_cloudbuildv2_repository.repo.id
+    repository = "projects/${var.cicd_runner_project_id}/locations/${var.region}/connections/${var.host_connection_name}/repositories/${var.repository_name}"
     pull_request {
       branch = "main"
     }
@@ -35,12 +35,13 @@ resource "google_cloudbuild_trigger" "pr_checks" {
     "deployment/**",
     "uv.lock",
   ]
-  depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services, google_cloudbuildv2_repository.repo]
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
+  depends_on         = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
 }
 
 # b. Create CD pipeline trigger
 resource "google_cloudbuild_trigger" "cd_pipeline" {
-  name            = "cd-pipeline"
+  name            = "cd-${var.project_name}"
   project         = var.cicd_runner_project_id
   location        = var.region
   service_account = resource.google_service_account.cicd_runner_sa.id
@@ -61,19 +62,23 @@ resource "google_cloudbuild_trigger" "cd_pipeline" {
     "deployment/**",
     "uv.lock"
   ]
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
   substitutions = {
     _STAGING_PROJECT_ID            = var.staging_project_id
     _BUCKET_NAME_LOAD_TEST_RESULTS = resource.google_storage_bucket.bucket_load_test_results.name
     _REGION                        = var.region
+    _RAG_CORPUS_NAME               = var.rag_cropus_name
+    _BUILD_SA_ID                   = google_service_account.build_sa["staging"].id
+    _CF_SA_EMAIL                   = google_service_account.cf_sa["staging"].email
+    _KNOWLEDGE_BUCKET              = google_storage_bucket.knowledge_bucket["staging"].name
     # Your other CD Pipeline substitutions
   }
-  depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services, google_cloudbuildv2_repository.repo]
-
+  depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
 }
 
 # c. Create Deploy to production trigger
 resource "google_cloudbuild_trigger" "deploy_to_prod_pipeline" {
-  name            = "deploy-to-prod-pipeline"
+  name            = "deploy-${var.project_name}"
   project         = var.cicd_runner_project_id
   location        = var.region
   description     = "Trigger for deployment to production"
@@ -81,15 +86,19 @@ resource "google_cloudbuild_trigger" "deploy_to_prod_pipeline" {
   repository_event_config {
     repository = google_cloudbuildv2_repository.repo.id
   }
-  filename = "deployment/cd/deploy-to-prod.yaml"
+  filename           = "deployment/cd/deploy-to-prod.yaml"
+  include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
   approval_config {
     approval_required = true
   }
   substitutions = {
-    _PROD_PROJECT_ID             = var.prod_project_id
-    _REGION                      = var.region
+    _PROD_PROJECT_ID  = var.prod_project_id
+    _REGION           = var.region
+    _RAG_CORPUS_NAME  = var.rag_cropus_name
+    _BUILD_SA_ID      = google_service_account.build_sa["prod"].id
+    _CF_SA_EMAIL      = google_service_account.cf_sa["prod"].email
+    _KNOWLEDGE_BUCKET = google_storage_bucket.knowledge_bucket["prod"].name
     # Your other Deploy to Prod Pipeline substitutions
   }
-  depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services, google_cloudbuildv2_repository.repo]
-
+  depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
 }

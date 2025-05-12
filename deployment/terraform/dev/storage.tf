@@ -12,45 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+provider "google" {
+  region = var.region
+  user_project_override = true
+}
+
 resource "google_storage_bucket" "logs_data_bucket" {
-  name                        = "${var.dev_project_id}-logs-data"
+  name                        = "${var.dev_project_id}-${var.project_name}-logs-data"
   location                    = var.region
   project                     = var.dev_project_id
   uniform_bucket_level_access = true
 
-  lifecycle {
-    prevent_destroy = false
-    ignore_changes  = all
-  }
   depends_on = [resource.google_project_service.services]
-}
-
-resource "google_discovery_engine_data_store" "data_store_dev" {
-  location                    = var.data_store_region
-  project                     = var.dev_project_id
-  data_store_id               = var.datastore_name
-  display_name                = var.datastore_name
-  industry_vertical           = "GENERIC"
-  content_config              = "CONTENT_REQUIRED"
-  solution_types              = ["SOLUTION_TYPE_SEARCH"]
-  document_processing_config {
-    default_parsing_config {
-      digital_parsing_config {}
-    }
-  }
-  provider                    = google.dev_billing_override
-  depends_on                  = [resource.google_project_service.services]
-}
-
-resource "google_discovery_engine_search_engine" "search_engine_dev" {
-  project        = var.dev_project_id
-  engine_id      = var.search_engine_name
-  collection_id  = "default_collection"
-  location       = google_discovery_engine_data_store.data_store_dev.location
-  display_name   = "Search Engine App Staging"
-  data_store_ids = [google_discovery_engine_data_store.data_store_dev.data_store_id]
-  search_engine_config {
-    search_tier = "SEARCH_TIER_ENTERPRISE"
-  }
-  provider = google.dev_billing_override
 }

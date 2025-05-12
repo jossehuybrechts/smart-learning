@@ -13,13 +13,36 @@
 # limitations under the License.
 
 steps:
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: deploy-rag-import-function
+    entrypoint: gcloud
+    args:
+      - functions
+      - deploy
+      - prod-rag-import-function
+      - --gen2
+      - --region=${_REGION}
+      - --source=cloud_function/
+      - --runtime=python312
+      - --entry-point=main
+      - --build-service-account=${_BUILD_SA_ID}
+      - --trigger-bucket=${_KNOWLEDGE_BUCKET}
+      - --service-account=${_CF_SA_EMAIL}
+      - --set-env-vars=RAG_CORPUS_NAME=${_RAG_CORPUS_NAME}
+      - --timeout=180s
+      - --max-instances=3
+      - --memory=512MB
+      - --trigger-location=${_REGION}
+      - --retry
+      - --ingress-settings=internal-only
+
   - name: "python:3.11-slim" 
     id: install-dependencies
     entrypoint: /bin/bash
     args:
       - "-c"
       - |
-        pip install uv --user && uv sync --frozen
+        pip install uv==0.6.12 --user && uv sync --frozen
     env:
       - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
 
@@ -29,19 +52,23 @@ steps:
     args:
       - "-c"
       - |
-        uv export --no-hashes --no-sources --no-header --no-emit-project --frozen > .requirements.txt
+        uv export --no-hashes --no-sources --no-header --no-dev --no-emit-project --no-annotate --frozen > .requirements.txt
         uv run app/agent_engine_app.py \
           --project ${_PROD_PROJECT_ID} \
           --location ${_REGION} \
-          --set-env-vars COMMIT_SHA=${COMMIT_SHA}
+          --set-env-vars="COMMIT_SHA=${COMMIT_SHA}"
     env:
       - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
 
 substitutions:
-  _PROD_PROJECT_ID: qwiklabs-gcp-03-3d4f5eb0f891
+  _PROD_PROJECT_ID: YOUR_PROD_PROJECT_ID
   _REGION: us-central1
+  _RAG_CORPUS_NAME: YOUR_RAG_CORPUS_NAME
+  _BUILD_SA_ID: YOUR_BUILD_SA_ID
+  _CF_SA_EMAIL: YOUR_CF_SA_EMAIL
+  _KNOWLEDGE_BUCKET: YOUR_KNOWLEDGE_BUCKET
 
-logsBucket: gs://${PROJECT_ID}-logs-data/build-logs
+logsBucket: gs://${PROJECT_ID}-study-helper-agent-logs-data/build-logs
 options:
   substitutionOption: ALLOW_LOOSE
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET

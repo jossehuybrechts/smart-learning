@@ -1,0 +1,5 @@
+google-auth==2.38.0
+google-cloud-aiplatform==1.85.0
+functions-framework==3.8.2
+cloudevents==1.11.0
+google-api-core==2.24.2

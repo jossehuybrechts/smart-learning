@@ -20,9 +20,9 @@ steps:
     args:
       - "-c"
       - |
-        pip install uv --user && uv sync --frozen
+        pip install uv==0.6.12 --user && uv sync --frozen
     env:
-      - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
+      - "PATH=/usr/local/bin:/usr/bin:~/.local/bin"
 
   # Run unit tests using pytest
   - name: "python:3.11-slim"
@@ -33,7 +33,7 @@ steps:
       - |
         uv run pytest tests/unit
     env:
-      - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
+      - "PATH=/usr/local/bin:/usr/bin:~/.local/bin"
 
   # Run integration tests
   - name: "python:3.11-slim"
@@ -44,8 +44,8 @@ steps:
       - |
         uv run pytest tests/integration
     env:
-      - 'PATH=/usr/local/bin:/usr/bin:~/.local/bin'
+      - "PATH=/usr/local/bin:/usr/bin:~/.local/bin"
 
-logsBucket: gs://${PROJECT_ID}-logs-data/build-logs
+logsBucket: gs://${PROJECT_ID}-student-helper-agent-logs-data/build-logs
 options:
   defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET

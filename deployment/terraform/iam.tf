@@ -44,6 +44,7 @@ resource "google_project_iam_member" "other_projects_roles" {
   member     = "serviceAccount:${resource.google_service_account.cicd_runner_sa.email}"
   depends_on = [resource.google_project_service.cicd_services, resource.google_project_service.shared_services]
 }
+
 resource "google_project_service_identity" "vertex_sa" {
   for_each = local.deploy_project_ids
   provider = google-beta

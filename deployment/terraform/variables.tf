@@ -12,6 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+variable "project_name" {
+  type        = string
+  description = "Project name used as a base for resource naming"
+  default     = "study-helper-agent"
+}
+
 variable "prod_project_id" {
   type        = string
   description = "**Production** Google Cloud Project ID for resource deployment."
@@ -43,22 +49,10 @@ variable "repository_name" {
   type        = string
 }
 
-variable "telemetry_bigquery_dataset_id" {
-  type        = string
-  description = "BigQuery dataset ID for telemetry data export."
-  default     = "telemetry_genai_app_sample_sink"
-}
-
-variable "feedback_bigquery_dataset_id" {
-  type        = string
-  description = "BigQuery dataset ID for feedback data export."
-  default     = "feedback_genai_app_sample_sink"
-}
-
 variable "telemetry_logs_filter" {
   type        = string
   description = "Log Sink filter for capturing telemetry data. Captures logs with the `traceloop.association.properties.log_type` attribute set to `tracing`."
-  default     = "jsonPayload.attributes.\"traceloop.association.properties.log_type\"=\"tracing\" jsonPayload.resource.attributes.\"service.name\"=\"Sample Chatbot Application\""
+  default     = "labels.service_name=\"study-helper-agent\" labels.type=\"agent_telemetry\""
 }
 
 variable "feedback_logs_filter" {
@@ -67,29 +61,7 @@ variable "feedback_logs_filter" {
   default     = "jsonPayload.log_type=\"feedback\""
 }
 
-variable "telemetry_sink_name" {
-  type        = string
-  description = "Name of the telemetry data Log Sink."
-  default     = "telemetry_logs_genai_app_sample"
-}
 
-variable "feedback_sink_name" {
-  type        = string
-  description = "Name of the feedback data Log Sink."
-  default     = "feedback_logs_genai_app_sample"
-}
-
-variable "cicd_runner_sa_name" {
-  description = "Service account name to be used for the CICD processes"
-  type        = string
-  default     = "cicd-runner"
-}
-
-variable "suffix_bucket_name_load_test_results" {
-  description = "Suffix Name of the bucket that will be used to store the results of the load test. Prefix will be project id."
-  type        = string
-  default     = "cicd-load-test-results"
-}
 variable "agentengine_sa_roles" {
   description = "List of roles to assign to the Agent Engine service account"
   type        = list(string)
@@ -126,20 +98,8 @@ variable "cicd_sa_deployment_required_roles" {
   ]
 }
 
-variable "data_store_region" {
+variable "rag_cropus_name" {
   type        = string
-  description = "Google Cloud region for resource deployment."
-  default     = "us"
-}
-
-variable "datastore_name" {
-  description = "The name of the datastore"
-  type        = string
-  default     = "study-help-datastore"
-}
-
-variable "search_engine_name" {
-  description = "The name of the search engine"
-  type = string
-  default = "study-helper-search-engine"
+  description = "The name of the RAG corpus"
+  default     = "study-helper-rag-corpus"
 }

@@ -31,6 +31,7 @@ resource "google_project_iam_member" "default_compute_sa_storage_object_creator"
   member     = "serviceAccount:${data.google_project.dev_project.number}-compute@developer.gserviceaccount.com"
   depends_on = [resource.google_project_service.services]
 }
+
 # Grant required permissions to Vertex AI service account
 resource "google_project_iam_member" "vertex_ai_sa_permissions" {
   for_each = {
@@ -38,8 +39,8 @@ resource "google_project_iam_member" "vertex_ai_sa_permissions" {
     join(",", pair) => pair[1]
   }
 
-  project = var.dev_project_id
-  role    = each.value
-  member  = google_project_service_identity.vertex_sa.member
+  project    = var.dev_project_id
+  role       = each.value
+  member     = google_project_service_identity.vertex_sa.member
   depends_on = [resource.google_project_service.services]
 }
