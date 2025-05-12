@@ -15,7 +15,7 @@
 variable "project_name" {
   type        = string
   description = "Project name used as a base for resource naming"
-  default     = "{{ cookiecutter.project_name | replace('_', '-') }}"
+  default     = "study-helper-agent"
 }
 
 variable "dev_project_id" {
