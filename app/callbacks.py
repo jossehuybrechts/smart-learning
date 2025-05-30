@@ -66,70 +66,78 @@ def before_model_callback(
     if function_response:
         if (
             "result" in function_response.response
-            and "json" in function_response.response["result"]
         ):
-            result = json.loads(
-                function_response.response["result"]
-                .replace("\n", "")
-                .replace("None", "null")
-                .strip("`json ")
-            )
-            if function_response.name == "question_generation_agent":
-                return LlmResponse(
-                    content=types.Content(
-                        role="model",
-                        parts=[
-                            types.Part(
-                                text=f"{result['question']}\n\nMoeilijkheid: {result['difficulty']}/5\n\nScore: /{result['max_score']}"
-                            )
-                        ],
-                    )
+            if "json" in function_response.response["result"]:
+                result = json.loads(
+                    function_response.response["result"]
+                    .replace("\n", "")
+                    .replace("None", "null")
+                    .strip("`json ")
                 )
-            elif function_response.name == "question_eval_agent":
-                store_results(
-                    user_id=callback_context.state["user_id"],
-                    session_id=callback_context.state["session_id"],
-                    subject=result["subject"],
-                    chapter=result["chapter"],
-                    question=result["question"],
-                    answer=result["answer"],
-                    student_score=result["score"],
-                    max_score=result["max_score"],
-                    difficulty=result["difficulty"],
+            elif function_response.response["result"].startswith("{"):
+                result = json.loads(
+                    function_response.response["result"]
+                    .replace("\n", "")
+                    .replace("None", "null")
+                    .replace("'", '"')
                 )
-                return LlmResponse(
-                    content=types.Content(
-                        role="model",
-                        parts=[
-                            types.Part(
-                                text=f"{result['feedback']}\n\nMoeilijkheid: {result['difficulty']}/5\n\nScore: {result['score']}/{result['max_score']}\n\n---\n\n***Volgende vraag:***\n\n{result['next_question']['question']}\n\nMoeilijkheid: {result['next_question']['difficulty']}/5\n\nScore: /{result['next_question']['max_score']}"
-                            )
-                        ],
-                    )
-                )
-            elif function_response.name == "get_bq_data":
-                if result["total_student_score"] is not None:
+            if result:
+                if function_response.name == "question_generation_agent":
                     return LlmResponse(
                         content=types.Content(
                             role="model",
                             parts=[
                                 types.Part(
-                                    text=f"Je hebt een score van {result['total_student_score']}/{result['total_max_score']} ({int(result['total_percentage'])}%). Wil je nog een vraag?"
+                                    text=f"{result['question']}\n\nMoeilijkheid: {result['difficulty']}/5\n\nScore: /{result['max_score']}"
                                 )
                             ],
                         )
                     )
-                else:
+                elif function_response.name == "question_eval_agent":
+                    store_results(
+                        user_id=callback_context.state["user_id"],
+                        session_id=callback_context.state["session_id"],
+                        subject=result["subject"],
+                        chapter=result["chapter"],
+                        question=result["question"],
+                        answer=result["answer"],
+                        student_score=result["score"],
+                        max_score=result["max_score"],
+                        difficulty=result["difficulty"],
+                    )
                     return LlmResponse(
                         content=types.Content(
                             role="model",
                             parts=[
                                 types.Part(
-                                    text="U hebt in deze sessie nog geen vragen beantwoord. Wil je een vraag beantwoorden?"
+                                    text=f"{result['feedback']}\n\nMoeilijkheid: {result['difficulty']}/5\n\nScore: {result['score']}/{result['max_score']}\n\n---\n\n***Volgende vraag:***\n\n{result['next_question']['question']}\n\nMoeilijkheid: {result['next_question']['difficulty']}/5\n\nScore: /{result['next_question']['max_score']}"
                                 )
                             ],
                         )
                     )
+                elif function_response.name == "get_bq_data":
+                    if result["total_student_score"] is not None:
+                        return LlmResponse(
+                            content=types.Content(
+                                role="model",
+                                parts=[
+                                    types.Part(
+                                        text=f"Je hebt een score van {result['total_student_score']}/{result['total_max_score']} ({int(result['total_percentage'])}%). Wil je nog een vraag?"
+                                    )
+                                ],
+                            )
+                        )
+                    else:
+                        return LlmResponse(
+                            content=types.Content(
+                                role="model",
+                                parts=[
+                                    types.Part(
+                                        text="U hebt in deze sessie nog geen vragen beantwoord. Wil je een vraag beantwoorden?"
+                                    )
+                                ],
+                            )
+                        )
     return None
 
 
